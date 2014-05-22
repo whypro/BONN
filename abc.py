@@ -6,82 +6,117 @@ import numpy as np
 import zipfile
 
 class DWT(object):
-    CLASS_MAP = {'A': '1', 'D': '1', 'E': '-1'}
+    CLASS_MAP = {'A': '0', 'D': '0', 'E': '1'}
 
     def __init__(self, debug=False):
         self.debug = debug
 
         self.dirname = ''
 
-        self.record = []
-        self.epoch = []
-        self.dwt_epoch = []
-        self.features = []
+        self.segments = []    # 记录集，以 segment 为单位，一个文件即为一个 segment
+        self.overlapped_segments = []   # 交叠后的 segments
+        # self.epoch = []     # epoch 集，以 segment 为单位
+        self.dwt_segments = [] # 离散小波变换后的 segments
+        self.feature_segments = []  # 特征提取后的向量集
     
     def reset(self):
-        self.record = []
-        self.epoch = []
-        self.dwt_epoch = []
-        self.features = []
+        self.segments = []
+        self.overlapped_segments = []
+        self.dwt_segments = []
+        self.feature_segments = []
     
     def read_from_zipfile(self, filename):
         z = zipfile.ZipFile(os.path.join(self.dirname, filename), 'r', )
+        sum_points = 0  # segments 中 point 的个数
         for fname in z.namelist():
             f = z.open(fname, 'r')
+            segment = []
             for line in f:
                 point = line.strip()
                 if point:
-                    self.record.append(int(point))
+                    segment.append(int(point))
+                    sum_points += 1
+            self.segments.append(segment)
             f.close()
         if self.debug:
-            print '%d records has been read.' % len(self.record)
-            # print self.record
+            print '%d points has been read.' % sum_points
+            print '%d segment has been read.' % len(self.segments)
+            # print self.segments
 
     def read_from_file(self, filename):
         f = open(os.path.join(self.dirname, filename), 'r')
         for line in f:
             point = line.strip()
             if point:
-                self.record.append(int(point))
+                self.segments.append(int(point))
         f.close()
         if self.debug:
-            print '%d records has been read.' % len(self.record)
-            print self.record
+            print '%d records has been read.' % len(self.segments)
+            print self.segments
 
-
-    def calc_epoch(self, point=256, overlap=1/2):
-        epoch_num = int((len(self.record)-point*overlap) / (point*(1-overlap)))
-        for epoch_i in range(1, epoch_num+1):
-            #print('[%d]')
-            begin = int(point*overlap*(epoch_i-1))
-            end = int(point*overlap*(epoch_i-1)+point)
-            # print epoch_i, ',', begin, ':', end
-            self.epoch.append(self.record[
-                begin : end
-            ])
+    def calc_epoch(self, point_num=256, overlap=1/2):
+        # segments -> segment(epochs) -> epoch(points)
+        for segment in self.segments:
+            epoch_num = int((len(segment)-point_num*overlap) / (point_num*(1-overlap)))     # 默认条件下为 31
+            epochs = []
+            for epoch_i in range(1, epoch_num+1):
+                begin = int(point_num*overlap*(epoch_i-1))
+                end = int(point_num*overlap*(epoch_i-1)+point_num)
+                # print epoch_i, ',', begin, ':', end
+                epoch = segment[begin:end]
+                epochs.append(epoch)
+            self.overlapped_segments.append(epochs)
+        # print len(self.overlapped_segments)
         if self.debug:
-            print 'epoch = %d, point = %d.' % (len(self.epoch), len(self.epoch[0]))
-            # print self.epoch[0][128], self.epoch[1][0] 
+            print 'segments length = %d, epochs length = %d, points length = %d.' % (
+                len(self.overlapped_segments), 
+                len(self.overlapped_segments[0]), 
+                len(self.overlapped_segments[0][0])
+            )
+            # f = open('overlapped_segments.txt', 'w')
+            # for segment in self.overlapped_segments:
+            #     for epochs in segment:
+            #         for epoch in epochs:
+            #             f.write(str(epoch)+' ')
+            #         f.write('\n')
+            #     f.write('\n')
 
     def discrete_wavelet_transform(self):
-        for epoch in self.epoch:
-            result = pywt.wavedec(epoch, 'db4', level=4)
-            self.dwt_epoch.append(result)
+        # segments -> segment(epochs) -> results
+        for epochs in self.overlapped_segments:
+            dwt_epochs = []
+            for epoch in epochs:
+                dwt_results = pywt.wavedec(epoch, 'db4', level=3)
+                dwt_epochs.append(dwt_results)
+            self.dwt_segments.append(dwt_epochs)
         if self.debug:
-            print 'dwt result length = %d.' % len(self.dwt_epoch[0])
+            print 'dwt segments length = %d, dwt epochs length = %d, dwt results length = %d.' % (
+                len(self.dwt_segments), 
+                len(self.dwt_segments[0]), 
+                len(self.dwt_segments[0][0]),
+            )
 
         
     def extract_features(self):
-        for dwt_epoch in self.dwt_epoch:
-            feature = []
-            for i in dwt_epoch:
-                average = self.calc_average(i)
-                variance = self.calc_variance(i)
-                #feature.append(average)
-                feature.append(variance)
-            self.features.append(feature)
+        # segments -> epochs -> features
+        for dwt_epochs in self.dwt_segments:
+            feature_epochs = []
+            for dwt_results in dwt_epochs:
+                features = []
+                for i in dwt_results:
+                    average = self.calc_average(i)
+                    variance = self.calc_variance(i)
+                    features.append(average)
+                    features.append(variance)
+                feature_epochs.append(features)
+            self.feature_segments.append(feature_epochs)
+
         if self.debug:
-            print '%d features in every epoch.' % len(self.features[0])
+            print 'feature segments length = %d, feature epochs length = %d, feature features length = %d.' % (
+                len(self.feature_segments), 
+                len(self.feature_segments[0]), 
+                len(self.feature_segments[0][0]),
+            )
 
     @staticmethod
     def calc_average(data):
@@ -101,14 +136,15 @@ class DWT(object):
         1:<cA3 Average> 2:<cA3 Variance> 3:<cD3 Average> 4:<cD3 Variance> 5:<cD2 Average> 6:<cD2 Variance> 7:<cD1 Average> 8:<cD1 Variance>
         """
         f = open(os.path.join(self.dirname, filename), 'w')
-        for feature in self.features:
-            for key, value in self.CLASS_MAP.items():
-                if filename[0] == key:
-                    classification = value
-            row = [classification]
-            for i in range(0, len(feature)):
-                row.append('%d:%f' % (i+1, feature[i]))
-            f.write(' '.join(row))
+        # fr = open(os.path.join(self.dirname, filename+'.range'), 'w')
+        for feature_epochs in self.feature_segments:
+            for features in feature_epochs:
+                classification = self.CLASS_MAP[filename[0]]
+                row = [classification]
+                for i, feature in enumerate(features):
+                    row.append('%d:%f' % (i+1, feature))
+                f.write(' '.join(row))
+                f.write('\n')
             f.write('\n')
         f.close()
         if self.debug:
@@ -139,7 +175,7 @@ class DWT(object):
             self.extract_features()
             self.save_to_file(o)
             self.reset()
-        self.merge(missions.values(), 'data')
+        # self.merge(missions.values(), 'data')
 
 dwt = DWT(debug=True)
 dwt.go()
