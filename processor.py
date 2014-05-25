@@ -4,8 +4,11 @@ import os
 import pywt
 import numpy as np
 import zipfile
+import random
+
 
 class DWT(object):
+    """读取 A.zip, B.zip, C.zip 后进行小波变换，特征提取后保存至 A.txt, B.txt, C.txt。"""
     CLASS_MAP = {'A': '0', 'D': '0', 'E': '1'}
 
     def __init__(self, debug=False):
@@ -130,6 +133,18 @@ class DWT(object):
         for point in data:
             diff.append((point-average)**2)
         return sum(diff)/len(diff)
+
+    @staticmethod
+    def calc_abs(data, average=None):
+        if not average:
+            average = sum(data)/len(data)
+        diff = []
+        for point in data:
+            diff.append(abs(point-average))
+        return sum(diff)/len(diff)
+
+    def shuffle_segments(self):
+        random.shuffle(self.feature_segments)
 
     def save_to_file(self, filename):
         """
