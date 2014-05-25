@@ -92,7 +92,7 @@ class Processor(object):
             for epoch in segment.epochs:
                 for i in epoch.dwt_results:
                     average = self.calc_average(i)
-                    variance = self.calc_variance(i)
+                    variance = self.calc_diff_abs(i)
                     epoch.features.append(average)
                     epoch.features.append(variance)
 
@@ -117,7 +117,7 @@ class Processor(object):
         return sum(diff)/len(diff)
 
     @staticmethod
-    def calc_abs(data, average=None):
+    def calc_diff_abs(data, average=None):
         if not average:
             average = sum(data)/len(data)
         diff = []
@@ -143,7 +143,7 @@ class Processor(object):
             data += '\n'
         return data
 
-    def save_train_and_test_data(self, training_filename='training.txt', predicting_filename='predicting.txt'):
+    def save_train_and_test_data(self, training_filename='data', predicting_filename='data.test'):
         training_segments = self.segments[:2*len(self.segments)//3]
         predicting_segments = self.segments[2*len(self.segments)//3:]
         
