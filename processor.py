@@ -21,6 +21,7 @@ class Segment(object):
 
 class Epoch(object):
     def __init__(self):
+        self.svm_classification = None
         self.points = []
         self.dwt_results = []
         self.features = []
@@ -195,8 +196,78 @@ class Processor(object):
         # self.reset()
         # self.merge(missions.values(), 'data')
 
-p = Processor(debug=True)
-p.go()
+
+class Evaluator(object):
+    def __init__(self):
+        self.segments = []
+
+    def read_true_values(self, filename='data.test', segment_num = 100, epoch_num=31):
+        f = open(filename, 'r')
+        for i in range(0, segment_num):
+            segment = Segment()
+            for j in range(0, epoch_num):
+                epoch = Epoch()
+                segment.epochs.append(epoch)
+                classification = f.readline().strip().split(' ')[0]
+                # print classification,
+            # print '\n'
+            segment.classification = classification
+            # print segment.classification
+            self.segments.append(segment)
+
+        f.close()
+        print '%d lines has been read.' % (i+1)
+        print '%d segments has been read.' % len(self.segments)
+
+    def read_predicted_values(self, filename='data.out'):
+        f = open(filename, 'r')
+        for segment in self.segments:
+            for epoch in segment.epochs:
+                epoch.svm_classification = f.readline().strip()
+        f.close()
+
+    def evaluate(self):
+        a, b, c, d = (0, 0, 0, 0) 
+        for segment in self.segments:
+            first_detect = None
+            for i, epoch in enumerate(segment.epochs):
+                # d=true positive, c=false negtive, a=true negtive, b=false positive
+                if segment.classification == '0':
+                    if epoch.svm_classification == '0':
+                        a += 1
+                    elif epoch.svm_classification == '1':
+                        c += 1
+                elif segment.classification == '1':
+                    if epoch.svm_classification == '0':
+                        b += 1
+                    elif epoch.svm_classification == '1':
+                        if first_detect is None: 
+                            first_detect = i
+                        d += 1
+            # if first_detect is not None:
+            #     print first_detect
+        print a, b, c, d
+        TP = d          # True Positive
+        TN = a          # True Negative
+        TNp = c + d     # TNp 所有实际发病
+        TNn = a + b     # TNn 所有实际未发病
+        sensitive = TP / TNp
+        specificity = TN / TNn
+        accuracy = (a+d) / (a+b+c+d)
+        accuracy2 = (sensitive+specificity) / 2
+        print 'sensitive = %f\nspecificity = %f\naccuracy=%f\naccuracy2=%f\n' % \
+            (sensitive, specificity, accuracy, accuracy2)
+
+    def go(self):
+        self.read_true_values('data7.test')
+        self.read_predicted_values('data7.out')
+        self.evaluate()
+
+
+# p = Processor(debug=True)
+# p.go()
+e = Evaluator()
+e.go()
 # f = open('records.txt', 'w')
 # f.write(str(p.segments))
 # f.close()
