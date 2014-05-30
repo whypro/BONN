@@ -144,6 +144,18 @@ class Processor(object):
             data += '\n'
         return data
 
+    def __convert_to_separated_data(self, segment):
+        label_data = ''
+        features_data = ''
+        for epoch in segment.epochs:
+            row = []
+            for feature in epoch.features:
+                row.append('%f' % feature)
+            features_data += ' '.join(row)
+            features_data += '\n'
+            label_data += segment.classification + '\n'
+        return label_data, features_data
+
     def save_train_and_test_data(self, training_filename='data', predicting_filename='data.test'):
         training_segments = self.segments[:2*len(self.segments)//3]
         predicting_segments = self.segments[2*len(self.segments)//3:]
@@ -159,24 +171,6 @@ class Processor(object):
             data = self.__convert_to_libsvm_data(segment)
             predicting_file.write(data) 
         predicting_file.close()
-
-    def save_to_file(self, filename="output.txt"):
-        """
-        1:<cA3 Average> 2:<cA3 Variance> 3:<cD3 Average> 4:<cD3 Variance> 5:<cD2 Average> 6:<cD2 Variance> 7:<cD1 Average> 8:<cD1 Variance>
-        """
-        f = open(filename, 'w')
-        for segment in self.segments:
-            for epoch in segment.epochs:
-                row = [segment.classification]
-                for i, feature in enumerate(epoch.features, start=1):
-                    row.append('%d:%f' % (i, feature))
-                f.write(' '.join(row))
-                f.write('\n')
-            f.write('\n')
-        f.close()
-        if self.debug:
-            print 'data saved to %s.' % filename
-
 
     def go(self):
         missions = {
@@ -198,11 +192,13 @@ class Processor(object):
 
 
 class Evaluator(object):
-    def __init__(self):
+    def __init__(self, testing_filename='data.test', predicting_filename='data.out'):
         self.segments = []
+        self.testing_filename = testing_filename
+        self.predicting_filename = predicting_filename
 
-    def read_true_values(self, filename='data.test', segment_num = 100, epoch_num=31):
-        f = open(filename, 'r')
+    def read_true_values(self, segment_num = 100, epoch_num=31):
+        f = open(self.testing_filename, 'r')
         for i in range(0, segment_num):
             segment = Segment()
             for j in range(0, epoch_num):
@@ -219,55 +215,51 @@ class Evaluator(object):
         print '%d lines has been read.' % (i+1)
         print '%d segments has been read.' % len(self.segments)
 
-    def read_predicted_values(self, filename='data.out'):
-        f = open(filename, 'r')
+    def read_predicted_values(self):
+        f = open(self.predicting_filename, 'r')
         for segment in self.segments:
             for epoch in segment.epochs:
                 epoch.svm_classification = f.readline().strip()
         f.close()
 
     def evaluate(self):
-        a, b, c, d = (0, 0, 0, 0) 
+        TP, FP, TN, FN = (0, 0, 0, 0) 
         for segment in self.segments:
             first_detect = None
             for i, epoch in enumerate(segment.epochs):
                 # d=true positive, c=false negtive, a=true negtive, b=false positive
                 if segment.classification == '0':
                     if epoch.svm_classification == '0':
-                        a += 1
+                        TN += 1
                     elif epoch.svm_classification == '1':
-                        c += 1
+                        FP += 1
                 elif segment.classification == '1':
                     if epoch.svm_classification == '0':
-                        b += 1
+                        FN += 1
                     elif epoch.svm_classification == '1':
                         if first_detect is None: 
                             first_detect = i
-                        d += 1
+                        TP += 1
             # if first_detect is not None:
             #     print first_detect
-        print a, b, c, d
-        TP = d          # True Positive
-        TN = a          # True Negative
-        TNp = c + d     # TNp 所有实际发病
-        TNn = a + b     # TNn 所有实际未发病
-        sensitive = TP / TNp
-        specificity = TN / TNn
-        accuracy = (a+d) / (a+b+c+d)
+        print TP, FP, TN, FN
+        # TNp = TP + FN     # TNp 所有实际发病
+        # TNn = TN + FP     # TNn 所有实际未发病
+        sensitive = TP / (TP+FN)
+        specificity = TN / (TN+FP)
+        accuracy = (TN+TP) / (TP+FP+TN+FN)
         accuracy2 = (sensitive+specificity) / 2
         print 'sensitive = %f\nspecificity = %f\naccuracy=%f\naccuracy2=%f\n' % \
             (sensitive, specificity, accuracy, accuracy2)
 
     def go(self):
-        self.read_true_values('data7.test')
-        self.read_predicted_values('data7.out')
+        self.read_true_values()
+        self.read_predicted_values()
         self.evaluate()
 
 
-# p = Processor(debug=True)
-# p.go()
-e = Evaluator()
-e.go()
-# f = open('records.txt', 'w')
-# f.write(str(p.segments))
-# f.close()
+p = Processor(debug=True)
+p.go()
+# e = Evaluator('data73.test', 'data73.test.predict')
+# e.go()
+
