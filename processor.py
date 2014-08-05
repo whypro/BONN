@@ -176,6 +176,27 @@ class Processor(object):
         f.close()
         if self.debug:
             print 'data saved to %s.' % filename
+    
+    @staticmethod
+    def dec2hex(self, number):
+        integer_part = int(number)
+        fraction_part = abs(number - integer_part)
+        
+        # 整数部分
+        ip_bin = ''
+        for i in range(15, -1, -1):
+            ip_bin += integer_part >> i & 1
+        print ip_bin
+        
+        # 小数部分
+        fp_bin = ''
+        temp = fraction_part
+        for i in range(16):
+            temp *= 2
+            fp_bin += int(temp)
+        print fp_bin
+        
+        return ip_bin + fp_bin
 
 
     def go(self):
