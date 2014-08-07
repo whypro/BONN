@@ -138,8 +138,13 @@ class Processor(object):
         data = ''
         for epoch in segment.epochs:
             row = [segment.classification]
-            for i, feature in enumerate(epoch.features, start=1):
-                row.append('%d:%f' % (i, feature))
+            # 格式 1
+            # for i, feature in enumerate(epoch.features, start=1):
+            #     row.append('%d:%f' % (i, feature))
+            # 格式 2
+            for feature in epoch.features:
+                row.append('%s' % self.dec2bin(feature))
+
             data += ' '.join(row)
             data += '\n'
         return data
@@ -178,23 +183,26 @@ class Processor(object):
             print 'data saved to %s.' % filename
     
     @staticmethod
-    def dec2hex(self, number):
+    def dec2bin(number):
         integer_part = int(number)
         fraction_part = abs(number - integer_part)
         
         # 整数部分
         ip_bin = ''
         for i in range(15, -1, -1):
-            ip_bin += integer_part >> i & 1
-        print ip_bin
+            ip_bin += str(integer_part >> i & 1)
+        # print integer_part, ':', ip_bin
+        assert len(ip_bin) == 16
         
         # 小数部分
         fp_bin = ''
         temp = fraction_part
         for i in range(16):
             temp *= 2
-            fp_bin += int(temp)
-        print fp_bin
+            fp_bin += str(int(temp))
+            temp -= int(temp)
+        # print fraction_part, ':', fp_bin
+        assert len(fp_bin) == 16
         
         return ip_bin + fp_bin
 
@@ -285,10 +293,10 @@ class Evaluator(object):
         self.evaluate()
 
 
-# p = Processor(debug=True)
-# p.go()
-e = Evaluator()
-e.go()
+p = Processor(debug=True)
+p.go()
+# e = Evaluator()
+# e.go()
 # f = open('records.txt', 'w')
 # f.write(str(p.segments))
 # f.close()
