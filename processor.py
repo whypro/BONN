@@ -69,8 +69,8 @@ class Processor(object):
         # print len(self.overlapped_segments)
         if self.debug:
             print 'segments length = %d, segment.epochs length = %d, epoch.points length = %d.' % (
-                len(self.segments), 
-                len(self.segments[0].epochs), 
+                len(self.segments),
+                len(self.segments[0].epochs),
                 len(self.segments[0].epochs[0].points)
             )
 
@@ -82,8 +82,8 @@ class Processor(object):
 
         if self.debug:
             print 'segments length = %d, segment.epochs length = %d, epoch.dwt_results length = %d.' % (
-                len(self.segments), 
-                len(self.segments[0].epochs), 
+                len(self.segments),
+                len(self.segments[0].epochs),
                 len(self.segments[0].epochs[0].dwt_results)
             )
 
@@ -99,8 +99,8 @@ class Processor(object):
 
         if self.debug:
             print 'segments length = %d, segment.epochs length = %d, epoch.features length = %d.' % (
-                len(self.segments), 
-                len(self.segments[0].epochs), 
+                len(self.segments),
+                len(self.segments[0].epochs),
                 len(self.segments[0].epochs[0].features)
             )
 
@@ -131,39 +131,43 @@ class Processor(object):
         if self.debug:
             print '%d segments shuffled.' % len(self.segments)
 
-    def __convert_to_libsvm_data(self, segment):
+    def __convert_to_libsvm_data(self, segment, base):
         """
-        1:<cA3 Average> 2:<cA3 Variance> 3:<cD3 Average> 4:<cD3 Variance> 5:<cD2 Average> 6:<cD2 Variance> 7:<cD1 Average> 8:<cD1 Variance>
+        base in ['dec', 'bin']
+        <Classification> 1:<cA3 Average> 2:<cA3 Variance> 3:<cD3 Average> 4:<cD3 Variance> 5:<cD2 Average> 6:<cD2 Variance> 7:<cD1 Average> 8:<cD1 Variance>
         """
         data = ''
         for epoch in segment.epochs:
             row = [segment.classification]
-            # 格式 1
-            # for i, feature in enumerate(epoch.features, start=1):
-            #     row.append('%d:%f' % (i, feature))
-            # 格式 2
-            for feature in epoch.features:
-                row.append('%s' % self.dec2bin(feature))
-
+            if base == 'dec':
+                for i, feature in enumerate(epoch.features, start=1):
+                    row.append('%d:%f' % (i, feature))
+            elif base == 'bin':
+                for i, feature in enumerate(epoch.features, start=1):
+                    row.append('%d:%s' % (i, self.dec2bin(feature)))
+            else:
+                raise
             data += ' '.join(row)
             data += '\n'
         return data
 
-    def save_train_and_test_data(self, training_filename='data', predicting_filename='data.test'):
+    def save_train_and_test_data(self, training_filename='data', predicting_filename='data.test', base='dec'):
         training_segments = self.segments[:2*len(self.segments)//3]
         predicting_segments = self.segments[2*len(self.segments)//3:]
-        
+
         training_file = open(training_filename, 'w')
         for segment in training_segments:
-            data = self.__convert_to_libsvm_data(segment)
+            data = self.__convert_to_libsvm_data(segment, base)
             training_file.write(data)
         training_file.close()
+        print 'training data saved to %s by %s' % (training_filename, base)
 
         predicting_file = open(predicting_filename, 'w')
         for segment in predicting_segments:
-            data = self.__convert_to_libsvm_data(segment)
-            predicting_file.write(data) 
+            data = self.__convert_to_libsvm_data(segment, base)
+            predicting_file.write(data)
         predicting_file.close()
+        print 'predicting data saved to %s by %s' % (predicting_filename, base)
 
     def save_to_file(self, filename="output.txt"):
         """
@@ -181,19 +185,19 @@ class Processor(object):
         f.close()
         if self.debug:
             print 'data saved to %s.' % filename
-    
+
     @staticmethod
     def dec2bin(number):
         integer_part = int(number)
         fraction_part = abs(number - integer_part)
-        
+
         # 整数部分
         ip_bin = ''
         for i in range(15, -1, -1):
             ip_bin += str(integer_part >> i & 1)
         # print integer_part, ':', ip_bin
         assert len(ip_bin) == 16
-        
+
         # 小数部分
         fp_bin = ''
         temp = fraction_part
@@ -203,24 +207,25 @@ class Processor(object):
             temp -= int(temp)
         # print fraction_part, ':', fp_bin
         assert len(fp_bin) == 16
-        
+
         return ip_bin + fp_bin
 
 
     def go(self):
         missions = {
-            'A/Z.zip': 'A/Z.txt', 
-            'D/F.zip': 'D/F.txt', 
+            'A/Z.zip': 'A/Z.txt',
+            'D/F.zip': 'D/F.txt',
             'E/S.zip': 'E/S.txt',
         }
         for i, o in missions.items():
             self.read_from_zipfile(i)
-        
+
         self.calc_epoch()
         self.discrete_wavelet_transform()
         self.extract_features()
         self.shuffle()
-        self.save_train_and_test_data()
+        self.save_train_and_test_data('data', 'data.test', base='dec')
+        self.save_train_and_test_data('data.bin', 'data.bin.test', base='bin')
 
         # self.reset()
         # self.merge(missions.values(), 'data')
@@ -256,7 +261,7 @@ class Evaluator(object):
         f.close()
 
     def evaluate(self):
-        a, b, c, d = (0, 0, 0, 0) 
+        a, b, c, d = (0, 0, 0, 0)
         for segment in self.segments:
             first_detect = None
             for i, epoch in enumerate(segment.epochs):
@@ -270,7 +275,7 @@ class Evaluator(object):
                     if epoch.svm_classification == '0':
                         b += 1
                     elif epoch.svm_classification == '1':
-                        if first_detect is None: 
+                        if first_detect is None:
                             first_detect = i
                         d += 1
             # if first_detect is not None:
