@@ -188,8 +188,38 @@ class Processor(object):
 
     @staticmethod
     def dec2bin(number):
-        integer_part = int(number)
-        fraction_part = abs(number - integer_part)
+        negative = number < 0
+        integer_part = abs(int(number))
+        fraction_part = abs(number) - integer_part
+
+        print negative
+        print integer_part
+        print fraction_part
+
+        # 整数部分转为原码
+        ip_bin = ''
+        for i in range(15, -1, -1):
+            ip_bin += str(integer_part >> i & 1)
+        print ip_bin
+
+        # 小数部分转为原码
+        fp_bin = ''
+        temp = fraction_part
+        for i in range(16):
+            temp *= 2
+            fp_bin += str(int(temp))
+            temp -= int(temp)
+        print fp_bin
+        result = ip_bin + fp_bin
+        print result
+
+        if negative:
+            for i in range(len(result)):
+                if result[i] == '0': result[i] = '1'
+                elif result[i] == '1': result[i] = '0'
+        print result 
+
+        return 
 
         # 整数部分
         ip_bin = ''
@@ -299,7 +329,8 @@ class Evaluator(object):
 
 
 p = Processor(debug=True)
-p.go()
+p.dec2bin(-10.5)
+# p.go()
 # e = Evaluator()
 # e.go()
 # f = open('records.txt', 'w')
