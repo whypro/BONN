@@ -312,14 +312,14 @@ class Evaluator(object):
             (sensitive, specificity, accuracy, accuracy2)
 
     def go(self):
-        self.read_true_values('data7.test')
-        self.read_predicted_values('data7.out')
+        self.read_true_values('data.test')
+        self.read_predicted_values('data.out')
         self.evaluate()
 
 
 p = Processor(debug=True)
-print p.dec2bin(-6.3125)
-# p.go()
+# print p.dec2bin(-6.3125)
+p.go()
 # e = Evaluator()
 # e.go()
 # f = open('records.txt', 'w')
