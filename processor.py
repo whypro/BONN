@@ -192,15 +192,15 @@ class Processor(object):
         integer_part = abs(int(number))
         fraction_part = abs(number) - integer_part
 
-        print negative
-        print integer_part
-        print fraction_part
+        # print negative
+        # print integer_part
+        # print fraction_part
 
         # 整数部分转为原码
         ip_bin = ''
         for i in range(15, -1, -1):
             ip_bin += str(integer_part >> i & 1)
-        print ip_bin
+        # print ip_bin
 
         # 小数部分转为原码
         fp_bin = ''
@@ -209,27 +209,26 @@ class Processor(object):
             temp *= 2
             fp_bin += str(int(temp))
             temp -= int(temp)
-        print fp_bin
+        # print fp_bin
         result = ip_bin + fp_bin
 
         # 原码转为补码
-        return bin(Processor.str2bin(result, negative))[2:].zfill(32)
+        return Processor.bin2comp(result, negative)
 
 
     @staticmethod
-    def str2bin(string, negative):
-        binary = 0
-        print string
-        if negative:
-            binary = 1
-        binary = binary << 1
-        for c in string[1:]:
-            if c != '0': binary = binary | 1
-            binary = binary << 1
-        print binary
-        if negative: binary = -binary
-        binary = binary & 0xffffffff
-        return binary
+    def bin2comp(string, negative):
+        integer = 0
+        # print string
+        for c in string[:-1]:
+            integer |= c != '0' and 1 or 0
+            integer = integer << 1
+        integer |= c != '0' and 1 or 0
+        # print integer
+        if negative: integer = -integer
+        integer = integer & 0xffffffff
+
+        return bin(integer)[2:].zfill(32)
 
     def go(self):
         missions = {
@@ -319,7 +318,7 @@ class Evaluator(object):
 
 
 p = Processor(debug=True)
-print p.dec2bin(-1.5)
+print p.dec2bin(-6.3125)
 # p.go()
 # e = Evaluator()
 # e.go()
